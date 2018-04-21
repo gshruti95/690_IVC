@@ -65,7 +65,7 @@ def train(start_epoch = 0):
     ])
     style = utils.load_image(enums.style_image, size=enums.style_size)
     style = style_transform(style)
-    style = style.repeat(enums.batch_size, 1, 1, 1) # N,C,H,W
+    style = style.expand(enums.batch_size, *style.size()) # N,C,H,W
 
     if enums.cuda:
         transformer.cuda()

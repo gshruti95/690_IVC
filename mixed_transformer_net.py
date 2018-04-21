@@ -1,4 +1,5 @@
 import torch
+from torch.autograd import Variable
 import enums
 
 class TransformerNet(torch.nn.Module):
@@ -12,7 +13,7 @@ class TransformerNet(torch.nn.Module):
         self.conv3 = ConvLayer(64, 128, kernel_size=3, stride=2)
         self.in3 = torch.nn.InstanceNorm2d(128, affine=True)
         # new mixed layer takes input 128+s channels of hw same as output of conv3, gives output of same size but half depth i.e. 128 channels
-        self.mixed = ConvLayer(128 + enums.num_styles, 128, kernel_size=1, stride=1) # stride=2 in paper? but then half size as orig
+        self.mixed = ConvLayer(128 + enums.num_styles, 128, kernel_size=1, stride=1) # stride=2 in paper? but then output will be half size as orig x (incompatible)
         # Residual layers
         self.res1 = ResidualBlock(128)
         self.res2 = ResidualBlock(128)
@@ -32,11 +33,15 @@ class TransformerNet(torch.nn.Module):
         y = self.relu(self.in1(self.conv1(X)))
         y = self.relu(self.in2(self.conv2(y)))
         y = self.relu(self.in3(self.conv3(y)))
-        # z = concat y (output of conv3) and style signal S
+        # z is concat of y (output of conv3) and style signal S
         # S is size s,1 (num of styles), y is size N,C,H,W
-        S = S.unsqueeze(0).unsqueeze(3) # 1,s,1,1 (for N,C,H,W)
-        S = S.repeat(y.size(0), 1, y.size(2), y.size(3))
-        z = torch.cat((y, S), 1) # concat along channel C dim as N,H,W are all same, z is size N,(C+s),H,W
+        S = S.unsqueeze(2) # s,1,1
+        S = S.repeat(1, y.size(2), y.size(3)) # s,H,W
+        S = S.expand(y.size(0), S.size(0), S.size(1), S.size(2)) # N,s,H,W
+        #print "size S", S.size()
+        #S = Variable(S, requires_grad=False)
+        z = torch.cat((y.data, S), 1) # concat along channel C dim as N,H,W are all same, z is size N,(C+s),H,W
+        z = Variable(z)
         y = self.mixed(z)
         y = self.res1(y)
         y = self.res2(y)

@@ -50,6 +50,7 @@ def train(start_epoch = 0):
     train_loader = DataLoader(train_dataset, batch_size=enums.batch_size)
 
     transformer = TransformerNet()
+    #transformer = torch.nn.DataParallel(transformer)
     optimizer = Adam(transformer.parameters(), enums.lr)
     if enums.subcommand == 'resume':
         ckpt_state = torch.load(enums.checkpoint_model)
@@ -65,11 +66,24 @@ def train(start_epoch = 0):
         transforms.Lambda(lambda x: x.mul(255))
     ])
 
-    all_style_img_paths = [os.path.join(enums.style_image_dir, f) for f in os.listdir(enums.style_image_dir)]
-
     if enums.cuda:
         transformer.cuda()
         vgg.cuda()
+
+    all_style_img_paths = [os.path.join(enums.style_image_dir, f) for f in os.listdir(enums.style_image_dir)]
+    all_style_grams = {}
+    for i, style_img in enumerate(all_style_img_paths):
+        style = utils.load_image(style_img, size=enums.style_size)
+        style = style_transform(style)
+        style = style.repeat(enums.batch_size, 1, 1, 1) # N,C,H,W
+        if enums.cuda:
+            style = style.cuda()
+        style_v = Variable(style)        
+        style_v = utils.normalize_batch(style_v)
+        features_style = vgg(style_v)
+        gram_style = [utils.gram_matrix(y) for y in features_style]
+        all_style_grams[i] = gram_style
+
 
     for e in range(start_epoch, enums.epochs):
         transformer.train()
@@ -80,16 +94,6 @@ def train(start_epoch = 0):
             idx = random.randint(0, enums.num_styles - 1) # 0 to 6
             S = torch.zeros(enums.num_styles, 1) # s,1 vector
             S[idx] = 1 # one-hot vec for rand chosen style
-            S = Variable(S)
-
-            style_img = 
-            style = utils.load_image(style_img, size=enums.style_size)
-            style = style_transform(style)
-            style = style.repeat(enums.batch_size, 1, 1, 1) # N,C,H,W
-            style_v = Variable(style)
-            style_v = utils.normalize_batch(style_v)
-            features_style = vgg(style_v)
-            gram_style = [utils.gram_matrix(y) for y in features_style]
 
             n_batch = len(x)
             count += n_batch
@@ -97,16 +101,17 @@ def train(start_epoch = 0):
             x = Variable(x)
             if enums.cuda:
                 S = S.cuda()
-                style = style.cuda()
                 x = x.cuda()
 
             y = transformer(x, S)
+            #print e, batch_id
 
             y = utils.normalize_batch(y)
             x = utils.normalize_batch(x)
 
             features_y = vgg(y)
             features_x = vgg(x)
+            gram_style = all_style_grams[idx]
 
             content_loss = enums.content_weight * mse_loss(features_y.relu2_2, features_x.relu2_2)
 
@@ -131,6 +136,7 @@ def train(start_epoch = 0):
                                   (agg_content_loss + agg_style_loss) / (batch_id + 1)
                 )
                 print(mesg)
+           # del content_loss, style_loss, S, x, y, style, features_x, features_y
 
         if enums.checkpoint_model_dir is not None and (e + 1) % enums.checkpoint_interval == 0:
             # transformer.eval()
