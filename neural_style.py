@@ -28,7 +28,11 @@ def check_paths():
         sys.exit(1)
 
 
-def train():
+def save_checkpoint(state, filename):
+    torch.save(state, filename)
+
+
+def train(start_epoch = 0):
     np.random.seed(enums.seed)
     torch.manual_seed(enums.seed)
 
@@ -45,7 +49,14 @@ def train():
     train_loader = DataLoader(train_dataset, batch_size=enums.batch_size)
 
     transformer = TransformerNet()
-    optimizer = Adam(transformer.parameters(), enums.lr)
+    if enums.subcommand == 'resume':
+        ckpt_state = torch.load(enums.checkpoint_model_dir)
+        transformer.load_state_dict(ckpt_state['state_dict'])
+        start_epoch = ckpt_state['epoch']
+        optimizer.load_state_dict(ckpt_state['optimizer'])
+    else:
+        optimizer = Adam(transformer.parameters(), enums.lr)
+    
     mse_loss = torch.nn.MSELoss()
 
     vgg = Vgg16(requires_grad=False)
@@ -67,7 +78,7 @@ def train():
     features_style = vgg(style_v)
     gram_style = [utils.gram_matrix(y) for y in features_style]
 
-    for e in range(enums.epochs):
+    for e in range(start_epoch, enums.epochs):
         transformer.train()
         agg_content_loss = 0.
         agg_style_loss = 0.
@@ -112,30 +123,30 @@ def train():
                 )
                 print(mesg)
 
-            if enums.checkpoint_model_dir is not None and (batch_id + 1) % enums.checkpoint_interval == 0:
-                transformer.eval()
-                if enums.cuda:
-                    transformer.cpu()
-                ckpt_model_filename = "ckpt_epoch_" + str(e) + "_batch_id_" + str(batch_id + 1) + ".pth"
-                ckpt_model_path = os.path.join(enums.checkpoint_model_dir, ckpt_model_filename)
-                torch.save(transformer.state_dict(), ckpt_model_path)
-                if enums.cuda:
-                    transformer.cuda()
-                transformer.train()
+        if enums.checkpoint_model_dir is not None and (e + 1) % enums.checkpoint_interval == 0:
+            # transformer.eval()
+            if enums.cuda:
+                transformer.cpu()
+            ckpt_model_filename = "ckpt_epoch_" + str(e) + ".pth"
+            ckpt_model_path = os.path.join(enums.checkpoint_model_dir, ckpt_model_filename)
+            save_checkpoint({'epoch': e + 1, 'state_dict': transformer.state_dict(), 'optimizer': optimizer.state_dict()}, ckpt_model_path)
+            if enums.cuda:
+                transformer.cuda()
+            # transformer.train()
 
     # save model
-    transformer.eval()
+    # transformer.eval()
     if enums.cuda:
         transformer.cpu()
     save_model_filename = "epoch_" + str(enums.epochs) + "_" + str(time.ctime()).replace(' ', '_') + "_" + str(
         enums.content_weight) + "_" + str(enums.style_weight) + ".model"
     save_model_path = os.path.join(enums.save_model_dir, save_model_filename)
-    torch.save(transformer.state_dict(), save_model_path)
+    save_checkpoint({'epoch': e + 1, 'state_dict': transformer.state_dict(), 'optimizer': optimizer.state_dict()}, save_model_path)
 
     print("\nDone, trained model saved at", save_model_path)
 
 
-def stylize():
+def stylize(model_path):
     content_image = utils.load_image(enums.content_image, scale=enums.content_scale)
     content_transform = transforms.Compose([
         transforms.ToTensor(),
@@ -147,8 +158,11 @@ def stylize():
         content_image = content_image.cuda()
     content_image = Variable(content_image, volatile=True)
 
+    model_state = torch.load(model_path)
     style_model = TransformerNet()
-    style_model.load_state_dict(torch.load(enums.model))
+    style_model.load_state_dict(model_state['state_dict'])
+    style_model.eval()
+
     if enums.cuda:
         style_model.cuda()
     output = style_model(content_image)
@@ -167,11 +181,12 @@ def main():
         print("ERROR: cuda is not available, try running on CPU")
         sys.exit(1)
 
-    if enums.subcommand == "train":
+    if enums.subcommand == 'train' or enums.subcommand == 'resume':
         check_paths()
         train()
     else:
-        stylize()
+    	model_path = enums.model # change to enums.checkpoint_model to use that model for stylize
+        stylize(model_path)
 
 
 if __name__ == "__main__":
