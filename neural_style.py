@@ -49,14 +49,13 @@ def train(start_epoch = 0):
     train_loader = DataLoader(train_dataset, batch_size=enums.batch_size)
 
     transformer = TransformerNet()
+    optimizer = Adam(transformer.parameters(), enums.lr)
     if enums.subcommand == 'resume':
-        ckpt_state = torch.load(enums.checkpoint_model_dir)
+        ckpt_state = torch.load(enums.checkpoint_model)
         transformer.load_state_dict(ckpt_state['state_dict'])
         start_epoch = ckpt_state['epoch']
         optimizer.load_state_dict(ckpt_state['optimizer'])
-    else:
-        optimizer = Adam(transformer.parameters(), enums.lr)
-    
+
     mse_loss = torch.nn.MSELoss()
 
     vgg = Vgg16(requires_grad=False)
@@ -127,7 +126,7 @@ def train(start_epoch = 0):
             # transformer.eval()
             if enums.cuda:
                 transformer.cpu()
-            ckpt_model_filename = "ckpt_epoch_" + str(e) + ".pth"
+            ckpt_model_filename = "ckpt_epoch_" + str(e+1) + ".pth"
             ckpt_model_path = os.path.join(enums.checkpoint_model_dir, ckpt_model_filename)
             save_checkpoint({'epoch': e + 1, 'state_dict': transformer.state_dict(), 'optimizer': optimizer.state_dict()}, ckpt_model_path)
             if enums.cuda:
