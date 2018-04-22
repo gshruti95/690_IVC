@@ -196,7 +196,7 @@ def stylize(model_path):
         output = output.cpu()
 
     if enums.s_list == None:
-        out_dir = './batch-film-'
+        out_dir = './s-film-'
         for i, out_img in enumerate(output.data):
             if enums.pre_color:
                 #output_data *= 255.0

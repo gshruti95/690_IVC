@@ -5,9 +5,10 @@ content_image = './content-images/amber.jpg' # path to content img
 style_image = './style-images/candy.jpg'# path to style-image
 
 s_idx = None # film - if None then eval mode, mix - needed, cond - needed
-#s_list = [0,0.5,0.5,0,0,0,0,0,0] # film eval - if None then output is S images of diff styles
-s_list = None
-output_image = './film-Y-test' + '-4ep.jpg' # path to saved output img
+s_list = [1,1,1,0,0,0,0,0,0] # film eval - if None then output is S images of diff styles
+#s_list = None
+spat = 0 # 1 for Ver , 0 for Hor
+output_image = './film-spat-test' + '-4ep.jpg' # path to saved output img
 pre_color = 1 # if 1 preserve color of content image
 
 dataset = './med_COCO/' # path to training dataset, the path should point to a folder containing another folder with all the training images

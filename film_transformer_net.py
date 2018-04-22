@@ -57,25 +57,41 @@ class CIN(torch.nn.Module):
     def forward(self, X, s_idx, s_list=enums.s_list):
         # Train mode: X is N,C,H,W -- s_idx not None
         # Eval mode: output 1,C,H,W -- s_list not None OR s,C,H,W -- s_list None
-        if not s_idx == None:
+        if s_idx is not None:
             gamma = self.gammas[s_idx].unsqueeze(0).unsqueeze(2).unsqueeze(3)
             beta = self.betas[s_idx].unsqueeze(0).unsqueeze(2).unsqueeze(3) # 1,C,1,1
             out = gamma*X + beta # N,C,H,W
         else: # eval mode
-            if not s_list == None: # X is 1,C,H,W
+            if s_list is not None: # X is 1,C,H,W
                 s_wts = Variable(torch.Tensor(s_list), volatile=True, requires_grad=False).unsqueeze(1) # s,1
                 if enums.cuda:
                     s_wts = s_wts.cuda()
                 gammas = s_wts*self.gammas # s,1*s,C = s*C
                 betas = s_wts*self.betas
-                gamma = 0.
-                beta = 0.
-                for idx, _ in enumerate(s_wts):
-                    gamma += gammas[idx] # C
-                    beta += betas[idx]
-                gamma = gamma.unsqueeze(0).unsqueeze(2).unsqueeze(3) # 1,C,1,1
-                beta = beta.unsqueeze(0).unsqueeze(2).unsqueeze(3)
-                out = gamma*X + beta
+                if enums.spat is None:
+                    gamma = 0.
+                    beta = 0.
+                    for idx, _ in enumerate(s_wts):
+                        gamma += gammas[idx] # C
+                        beta += betas[idx]
+                    gamma = gamma.unsqueeze(0).unsqueeze(2).unsqueeze(3) # 1,C,1,1
+                    beta = beta.unsqueeze(0).unsqueeze(2).unsqueeze(3)
+                    out = gamma*X + beta
+                else: # spatial transfer either V for Vertical or H for horizontal split
+                    # count how many styles to split by and chunk X
+                    style_ids = [i for i, e in enumerate(s_list) if e!=0]
+                    parts = len(style_ids)
+                    if enums.spat == 1: # Ver -- chunk by last dim width W
+                        split_dim = 3
+                    else: # Hor -- chunk by height H
+                        split_dim = 2
+                    #print X.size(), parts
+                    x_list = X.chunk(parts, split_dim)
+                    seq = []
+                    for i, item in enumerate(x_list):
+                        output = gammas[style_ids[i]].unsqueeze(0).unsqueeze(2).unsqueeze(3)*item + betas[style_ids[i]].unsqueeze(0).unsqueeze(2).unsqueeze(3)
+                        seq.append(output)
+                    out = torch.cat(seq, split_dim)
             else: # X is s,C,H,W
                 gammas = self.gammas.unsqueeze(2).unsqueeze(3) # s,C,1,1
                 betas = self.betas.unsqueeze(2).unsqueeze(3)
