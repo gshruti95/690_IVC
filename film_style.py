@@ -16,6 +16,7 @@ from film_transformer_net import TransformerNet
 from vgg import Vgg16
 import enums
 import random
+from PIL import Image
 
 
 def check_paths():
@@ -163,7 +164,12 @@ def train(start_epoch = 0):
 
 def stylize(model_path):
 
-    content_image = utils.load_image(enums.content_image, scale=enums.content_scale)
+    content_image = utils.load_image(enums.content_image, scale=enums.content_scale) # PIL Image
+    #if enums.pre_color:
+    _, cb, cr = content_image.convert('YCbCr').split()
+    #else:
+    #content_image = pil_image
+
     content_transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Lambda(lambda x: x.mul(255))
@@ -179,8 +185,6 @@ def stylize(model_path):
     style_model.load_state_dict(model_state['state_dict'])
     style_model.eval()
 
-    all_style_img_paths = [os.path.join(enums.style_image_dir, f) for f in os.listdir(enums.style_image_dir)]
-
     if enums.cuda:
         style_model.cuda()
 
@@ -193,11 +197,37 @@ def stylize(model_path):
 
     if enums.s_list == None:
         out_dir = './batch-film-'
-        for i, v in enumerate(output.data):
-            utils.save_image(out_dir + str(i) + '.jpg', v)
+        for i, out_img in enumerate(output.data):
+            if enums.pre_color:
+                #output_data *= 255.0
+                #output_data = output_data.clip(0, 255)
+                #topil = transforms.ToPILImage(mode='YCbCr')
+                #out_y, out_cb, out_cr = topil(out_img).split()
+                #out_img = Image.merge('YCbCr', [out_y, cb, cr]).convert('RGB')
+                img = out_img.clone().clamp(0, 255).numpy()
+                img = img.transpose(1, 2, 0).astype("uint8")
+                img = Image.fromarray(img)
+                out_Y, _, _ = img.convert('YCbCr').split()
+                out_img = Image.merge('YCbCr', [out_Y, cb, cr]).convert('RGB')
+                out_img.save(out_dir + str(i) + '.jpg')
+            else:
+                utils.save_image(out_dir + str(i) + '.jpg', out_img)
     else:
-        output_data = output.data[0]
-        utils.save_image(enums.output_image, output_data)
+        out_img = output.data[0]
+        if enums.pre_color:
+            #output_data *= 255.0
+            #output_data = output_data.clip(0, 255)
+            #topil = transforms.ToPILImage(mode='YCbCr')
+            #out_y, out_cb, out_cr = topil(out_img).split()
+            
+            img = out_img.clone().clamp(0, 255).numpy()
+            img = img.transpose(1, 2, 0).astype("uint8")
+            img = Image.fromarray(img)
+            out_Y, _, _ = img.convert('YCbCr').split()
+            out_img = Image.merge('YCbCr', [out_Y, cb, cr]).convert('RGB')
+            out_img.save(enums.output_image)
+        else:
+            utils.save_image(enums.output_image, out_img)
 
 
 def main():

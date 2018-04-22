@@ -1,19 +1,19 @@
-subcommand = 'train' # change to 'resume' for ckpting or anything else for eval
+subcommand = 'rain' # change to 'resume' for ckpting or anything else for eval
 cuda = 1 # set it to 1 for running on GPU, 0 for CPU
 
 content_image = './content-images/amber.jpg' # path to content img
 style_image = './style-images/candy.jpg'# path to style-image
 
-s_idx = 1 # film - if None then eval mode, mix - needed, cond - needed
-s_list = [0,0.5,0.5,0,0,0,0,0,0] # film eval - if None then output is S images of diff styles
-#s_list = None
-output_image = './film-test' + '-2ep.jpg' # path to saved output img
-
+s_idx = None # film - if None then eval mode, mix - needed, cond - needed
+#s_list = [0,0.5,0.5,0,0,0,0,0,0] # film eval - if None then output is S images of diff styles
+s_list = None
+output_image = './film-Y-test' + '-4ep.jpg' # path to saved output img
+pre_color = 1 # if 1 preserve color of content image
 
 dataset = './med_COCO/' # path to training dataset, the path should point to a folder containing another folder with all the training images
 style_image_dir = './style-images/'
-save_model_dir = './cond-model/' # path to folder where trained model will be saved
-checkpoint_model_dir = './cond-checkpoints/' # path to folder where checkpoints of trained models will be saved
+save_model_dir = './med-film-model/' # path to folder where trained model will be saved
+checkpoint_model_dir = './con-checkpoints/' # path to folder where checkpoints of trained models will be saved
 checkpoint_model = checkpoint_model_dir + 'ckpt_epoch_1.pth' # path to ckpt model to resume training
 model = save_model_dir + 'epoch_4_Sun_Apr_22_01:55:41_2018_100000.0_10000000000.0.model' # path to where model was saved
 #model = checkpoint_model
