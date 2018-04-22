@@ -2,15 +2,15 @@ subcommand = 'train' # change to 'resume' for ckpting or 'test' for eval
 cuda = 1 # set it to 1 for running on GPU, 0 for CPU
 
 content_image = './content-images/amber.jpg' # path to content img
-style_image = './style-images/mosaic.jpg'# path to style-image
-output_image = './amber-mosaic-2ep.jpg' # path to saved output img
+style_image = './style-images/candy.jpg'# path to style-image
+output_image = './amber-candy-4ep.jpg' # path to saved output img
 
 dataset = './med_COCO/' # path to training dataset, the path should point to a folder containing another folder with all the training images
 style_image_dir = './style-images/'
-save_model_dir = './med-mix9-s2-model/' # path to folder where trained model will be saved
+save_model_dir = './med-orig-model/' # path to folder where trained model will be saved
 model = save_model_dir + '' # path to where model was saved
-checkpoint_model_dir = './med-mix9-s2-checkpoints/' # path to folder where checkpoints of trained models will be saved
-checkpoint_model = checkpoint_model_dir + 'ckpt_epoch_3.pth' # path to ckpt model to resume training
+checkpoint_model_dir = './med-orig-checkpoints/' # path to folder where checkpoints of trained models will be saved
+checkpoint_model = checkpoint_model_dir + 'ckpt_epoch_2.pth' # path to ckpt model to resume training
 
 epochs = 4 # number of training epochs, default is 2
 batch_size = 4 # batch size for training, default is 4
