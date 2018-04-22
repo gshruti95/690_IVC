@@ -163,8 +163,6 @@ def train(start_epoch = 0):
 
 def stylize(model_path):
 
-    all_style_img_paths = [os.path.join(enums.style_image_dir, f) for f in os.listdir(enums.style_image_dir)]
-    print all_style_img_paths
     content_image = utils.load_image(enums.content_image, scale=enums.content_scale)
     content_transform = transforms.Compose([
         transforms.ToTensor(),
@@ -181,13 +179,25 @@ def stylize(model_path):
     style_model.load_state_dict(model_state['state_dict'])
     style_model.eval()
 
+    all_style_img_paths = [os.path.join(enums.style_image_dir, f) for f in os.listdir(enums.style_image_dir)]
+
     if enums.cuda:
         style_model.cuda()
+
+    if enums.s_list == None:
+        content_image = content_image.repeat(enums.num_styles,1,1,1)
+   
     output = style_model(content_image)
     if enums.cuda:
         output = output.cpu()
-    output_data = output.data[0]
-    utils.save_image(enums.output_image, output_data)
+
+    if enums.s_list == None:
+        out_dir = './batch-film-'
+        for i, v in enumerate(output.data):
+            utils.save_image(out_dir + str(i) + '.jpg', v)
+    else:
+        output_data = output.data[0]
+        utils.save_image(enums.output_image, output_data)
 
 
 def main():
