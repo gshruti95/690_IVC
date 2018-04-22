@@ -1,6 +1,6 @@
 import torch
 from torch.nn.parameter import Parameter
-# from torch.autograd import Variable
+from torch.autograd import Variable
 import enums
 
 class TransformerNet(torch.nn.Module):
@@ -48,23 +48,38 @@ class TransformerNet(torch.nn.Module):
         return y
 
 
-class CIN(nn.Module):
+class CIN(torch.nn.Module):
     def __init__(self, channels):
         super(CIN, self).__init__()
-        self.gammas = nn.Parameter(torch.ones(enums.num_styles, channels)) # s,C
-        self.betas = nn.Parameter(torch.zeros(enums.num_styles, channels)) # s,C
+        self.gammas = torch.nn.Parameter(torch.ones(enums.num_styles, channels)) # s,C
+        self.betas = torch.nn.Parameter(torch.zeros(enums.num_styles, channels)) # s,C
 
-    def forward(self, X, s_idx=None):
-        # Train mode: X is N,C,H,W 
-        # Eval mode: s,C,H,W with no s_idx or 1,C,H,W with s_idx
-        if s_idx:
-            gamma = self.gammas[s_idx].unsqueeze(0).unsqueeze(2).unsqueeze(3) # 1,C,1,1
-            beta = self.betas[s_idx].unsqueeze(0).unsqueeze(2).unsqueeze(3)
+    def forward(self, X, s_idx, s_list=enums.s_list):
+        # Train mode: X is N,C,H,W -- s_idx not None
+        # Eval mode: output 1,C,H,W -- s_list not None OR s,C,H,W -- s_list None
+        if not s_idx == None:
+            gamma = self.gammas[s_idx].unsqueeze(0).unsqueeze(2).unsqueeze(3)
+            beta = self.betas[s_idx].unsqueeze(0).unsqueeze(2).unsqueeze(3) # 1,C,1,1
             out = gamma*X + beta # N,C,H,W
-        else:
-            gammas = self.gammas.unsqueeze(2).unsqueeze(3) # s,C,1,1
-            betas = self.betas.unsqueeze(2).unsqueeze(3)
-            out = gammas*X + betas
+        else: # eval mode
+            if not s_list == None: # X is 1,C,H,W
+                s_wts = Variable(torch.Tensor(s_list), volatile=True, requires_grad=False).unsqueeze(1) # s,1
+                if enums.cuda:
+                    s_wts = s_wts.cuda()
+                gammas = s_wts*self.gammas # s,1*s,C = s*C
+                betas = s_wts*self.betas
+                gamma = 0.
+                beta = 0.
+                for idx, _ in enumerate(s_wts):
+                    gamma += gammas[idx] # C
+                    beta += betas[idx]
+                gamma = gamma.unsqueeze(0).unsqueeze(2).unsqueeze(3) # 1,C,1,1
+                beta = beta.unsqueeze(0).unsqueeze(2).unsqueeze(3)
+                out = gamma*X + beta
+            else: # X is s,C,H,W
+                gammas = self.gammas.unsqueeze(2).unsqueeze(3) # s,C,1,1
+                betas = self.betas.unsqueeze(2).unsqueeze(3)
+                out = gammas*X + betas
             
         return out
 

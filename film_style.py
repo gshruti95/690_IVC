@@ -12,7 +12,7 @@ from torchvision import datasets
 from torchvision import transforms
 
 import utils
-from mixed_transformer_net import TransformerNet
+from film_transformer_net import TransformerNet
 from vgg import Vgg16
 import enums
 import random
@@ -100,11 +100,11 @@ def train(start_epoch = 0):
             optimizer.zero_grad()
             x = Variable(x)
             if enums.cuda:
-                S = S.cuda()
+                #S = S.cuda()
                 x = x.cuda()
 
             y = transformer(x, idx)
-            print e, batch_id
+            #print e, batch_id
 
             y = utils.normalize_batch(y)
             x = utils.normalize_batch(x)
@@ -162,6 +162,9 @@ def train(start_epoch = 0):
 
 
 def stylize(model_path):
+
+    all_style_img_paths = [os.path.join(enums.style_image_dir, f) for f in os.listdir(enums.style_image_dir)]
+    print all_style_img_paths
     content_image = utils.load_image(enums.content_image, scale=enums.content_scale)
     content_transform = transforms.Compose([
         transforms.ToTensor(),
