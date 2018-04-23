@@ -84,7 +84,7 @@ def train(start_epoch = 0):
         gram_style = [utils.gram_matrix(y) for y in features_style]
         all_style_grams[i] = gram_style
 
-    style_dataset = datasets.ImageFolder(enums.style_image_dir, style_transform)
+    style_dataset = datasets.ImageFolder(enums.style_dataloader_dir, style_transform)
     style_loader = DataLoader(style_dataset, batch_size=1)
 
 
@@ -103,7 +103,6 @@ def train(start_epoch = 0):
             optimizer.zero_grad()
             x = Variable(x)
             if enums.cuda:
-                S = S.cuda()
                 x = x.cuda()
 
             x = utils.normalize_batch(x)
@@ -111,8 +110,12 @@ def train(start_epoch = 0):
             content_loss = 0.
             style_loss = 0.
             for style_batch_id, (s_img, idx) in enumerate(style_loader):
+                idx = idx[0]
                 S = torch.zeros(enums.num_styles, 1) # s,1 vector
                 S[idx] = 1 # one-hot vec for chosen style
+
+                if enums.cuda:
+                    S = S.cuda()
 
                 y = transformer(x, S)
 
@@ -120,7 +123,7 @@ def train(start_epoch = 0):
                 
 
                 features_y = vgg(y)
-                
+                #print idx
                 gram_style = all_style_grams[idx]
 
                 content_loss += mse_loss(features_y.relu2_2, features_x.relu2_2)
@@ -149,6 +152,17 @@ def train(start_epoch = 0):
                 print(mesg)
            # del content_loss, style_loss, S, x, y, style, features_x, features_y
 
+            if enums.checkpoint_model_dir is not None and (batch_id + 1) % enums.batch_checkpoint_interval == 0:
+                # transformer.eval()
+                if enums.cuda:
+                    transformer.cpu()
+                ckpt_model_filename = "ckpt_batch_" + str(batch_id+1) + ".pth"
+                ckpt_model_path = os.path.join(enums.checkpoint_model_dir, ckpt_model_filename)
+                save_checkpoint({'epoch': e+1, 'batch_id': batch_id + 1, 'state_dict': transformer.state_dict(), 'optimizer': optimizer.state_dict()}, ckpt_model_path)
+                if enums.cuda:
+                    transformer.cuda()
+                # transformer.train()
+        
         if enums.checkpoint_model_dir is not None and (e + 1) % enums.checkpoint_interval == 0:
             # transformer.eval()
             if enums.cuda:
@@ -159,6 +173,7 @@ def train(start_epoch = 0):
             if enums.cuda:
                 transformer.cuda()
             # transformer.train()
+
 
     # save model
     # transformer.eval()
