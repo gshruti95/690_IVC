@@ -13,7 +13,7 @@ class TransformerNet(torch.nn.Module):
         self.conv3 = ConvLayer(64, 128, kernel_size=3, stride=2)
         self.in3 = torch.nn.InstanceNorm2d(128, affine=True)
         # new mixed layer takes input 128+s channels of hw same as output of conv3, gives output of same size but half depth i.e. 128 channels
-        self.mixed = ConvLayer(128 + enums.num_styles, 128, kernel_size=1, stride=1) # stride=2 in paper? but then output will be half size as orig x (incompatible)
+        self.mixed = ConvLayer(128 + enums.num_styles, 128, kernel_size=1, stride=2) # stride=2 in paper? but then output will be half size as orig x (incompatible)
         # Residual layers
         self.res1 = ResidualBlock(128)
         self.res2 = ResidualBlock(128)
@@ -21,7 +21,9 @@ class TransformerNet(torch.nn.Module):
         self.res4 = ResidualBlock(128)
         self.res5 = ResidualBlock(128)
         # Upsampling Layers
-        self.deconv1 = UpsampleConvLayer(128, 64, kernel_size=3, stride=1, upsample=2)
+        #self.deconvMixed = UpsampleConvLayer(128, 128, kernel_size=3, stride=1, upsample=2)
+        #self.inMixed = torch.nn.InstanceNorm2d(128, affine=True)
+        self.deconv1 = UpsampleConvLayer(128, 64, kernel_size=3, stride=1, upsample=4)
         self.in4 = torch.nn.InstanceNorm2d(64, affine=True)
         self.deconv2 = UpsampleConvLayer(64, 32, kernel_size=3, stride=1, upsample=2)
         self.in5 = torch.nn.InstanceNorm2d(32, affine=True)
@@ -33,13 +35,13 @@ class TransformerNet(torch.nn.Module):
         y = self.relu(self.in1(self.conv1(X)))
         y = self.relu(self.in2(self.conv2(y)))
         y = self.relu(self.in3(self.conv3(y)))
-        # z is concat of y (output of conv3) and style signal S
         # S is size s,1 (num of styles), y is size N,C,H,W
         S = S.unsqueeze(2) # s,1,1
         S = S.repeat(1, y.size(2), y.size(3)) # s,H,W
+        #S = S.unsqueeze(0) # 1,s,H,W
+        #S = S.repeat(y.size(0), 1, 1, 1) # N,s,H,W
         S = S.expand(y.size(0), S.size(0), S.size(1), S.size(2)) # N,s,H,W
-        #print "size S", S.size()
-        #S = Variable(S, requires_grad=False)
+        #S = Variable(S)
         z = torch.cat((y.data, S), 1) # concat along channel C dim as N,H,W are all same, z is size N,(C+s),H,W
         z = Variable(z)
         y = self.mixed(z)
@@ -48,7 +50,9 @@ class TransformerNet(torch.nn.Module):
         y = self.res3(y)
         y = self.res4(y)
         y = self.res5(y)
+        #y = self.relu(self.inMixed(self.deconvMixed(y)))
         y = self.relu(self.in4(self.deconv1(y)))
+        #print "deconv1 up4 ", y.size()
         y = self.relu(self.in5(self.deconv2(y)))
         y = self.deconv3(y)
         return y

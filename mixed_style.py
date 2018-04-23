@@ -104,7 +104,6 @@ def train(start_epoch = 0):
                 x = x.cuda()
 
             y = transformer(x, S)
-            #print e, batch_id
 
             y = utils.normalize_batch(y)
             x = utils.normalize_batch(x)
@@ -162,6 +161,10 @@ def train(start_epoch = 0):
 
 
 def stylize(model_path):
+    all_style_img_paths = [os.path.join(enums.style_image_dir, f) for f in os.listdir(enums.style_image_dir)]
+    #img = all_style_img_paths[enums.s_idx]
+    S = torch.zeros(enums.num_styles, 1) # s,1 vector
+    S[enums.s_idx] = 1
     content_image = utils.load_image(enums.content_image, scale=enums.content_scale)
     content_transform = transforms.Compose([
         transforms.ToTensor(),
@@ -179,8 +182,9 @@ def stylize(model_path):
     style_model.eval()
 
     if enums.cuda:
-        style_model.cuda()
-    output = style_model(content_image)
+        style_model = style_model.cuda()
+        S = S.cuda()
+    output = style_model(content_image, S)
     if enums.cuda:
         output = output.cpu()
     output_data = output.data[0]
